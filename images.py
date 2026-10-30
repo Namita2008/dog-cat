@@ -1,53 +1,57 @@
+import streamlit as st
 import tensorflow as tf
-# Load images
-data = tf.keras.utils.image_dataset_from_directory("D:/namita/dog-cat-class (3)/dog-cat-class/train",
-    image_size=(64, 64),
-    batch_size=2
+import numpy as np
+from PIL import Image
+
+# Page configuration
+st.set_page_config(
+    page_title="Dog vs Cat Classifier",
+    page_icon="🐶",
+    layout="centered"
 )
-# CNN model
-model = tf.keras.Sequential([
-    tf.keras.layers.Rescaling(1./255),
-    tf.keras.layers.Conv2D(16, (3,3), activation="relu"),
-    tf.keras.layers.MaxPooling2D(),
-    tf.keras.layers.Flatten(),
-    tf.keras.layers.Dense(4, activation="softmax")
-])
-# Compile
-model.compile(
-    optimizer="adam",
-    loss="sparse_categorical_crossentropy",
-    metrics=["accuracy"]
+
+# Load trained CNN model
+@st.cache_resource
+def load_model():
+    return tf.keras.models.load_model("dog_cat_model.keras")
+
+model = load_model()
+
+# App title
+st.title("🐶 Dog vs Cat Classification 🐱")
+
+st.write("Upload an image to predict whether it is a Dog or Cat.")
+
+# Upload image
+uploaded_file = st.file_uploader(
+    "Choose an image",
+    type=["jpg", "jpeg", "png"]
 )
-# Train
-model.fit(data, epochs=50)
-model.summary()
-# Prediction
-img = tf.keras.utils.load_img("D:/namita/dog-cat-class (3)/dog-cat-class/test/p1.jpg", 
-                              target_size=(64,64))
-x = tf.keras.utils.img_to_array(img)
-x = tf.expand_dims(x, 0)
 
-p = model.predict(x)
-print(data.class_names[p.argmax()])
-model.save('CAT.keras')
+if uploaded_file is not None:
 
-import json
+    # Open image
+    image = Image.open(uploaded_file).convert("RGB")
 
-# Save class names to a JSON file
-with open("classes.json", "w") as f:
-    json.dump(data.class_names, f)
-    import json
+    # Display image
+    st.image(image, caption="Uploaded Image", width=300)
 
-# Read class names back from the JSON file
-with open("classes.json", "r") as f:
-    class_names = json.load(f)
+    # Resize image
+    img = image.resize((64, 64))
 
-import tensorflow as tf
-m=tf.keras.models.load_model("cat.keras")
-img = tf.keras.utils.load_img("D:/namita/dog-cat-class (3)/dog-cat-class/test/p1.jpg", 
-                              target_size=(64,64))
-x = tf.keras.utils.img_to_array(img)
-x = tf.expand_dims(x, 0)
-p=m.predict(x)
-print(p)
-print(class_names[p.argmax()])
+    # Convert image into array
+    img_array = np.array(img)
+
+    # Add batch dimension
+    img_array = np.expand_dims(img_array, axis=0)
+
+    # Prediction
+    if st.button("Predict"):
+
+        prediction = model.predict(img_array, verbose=0)
+
+        # Assumes training class order: Cat = 0, Dog = 1
+        if prediction[0][0] > 0.5:
+            st.success("🐶 Prediction: Dog")
+        else:
+            st.success("🐱 Prediction: Cat")
